@@ -115,6 +115,17 @@ Swing Kit is designed to render Vaadin views inside Swing applications. You can 
 <<{articles}/tools/swing#,See Swing Kit>>
 
 
+[.card.prime-plus]
+=== Application Snaplets
+
+image::{articles}{tools-icon-path-prefix}_images/sync-solid.svg[opts=inline, role=icon,32,3w]
+
+Application Snaplets are a set of Enterprise Application building blocks designed to address common use cases, lowering the amount of code needed to be maintained and allowing to focus on the specific aspects of system's domain.
+
+[.sr-only]
+<<{articles}/tools/snaplets#,See Application Snaplets>>
+
+
 [.card]
 === Theme Editor
 

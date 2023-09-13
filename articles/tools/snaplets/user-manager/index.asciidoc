@@ -1,0 +1,30 @@
+---
+title: User Manager
+description: User Management module with support for Roles, Groups and Access Rules administration.
+order: 2
+---
+
+= User Manager Snaplet
+
+The goal of this Snaplet is to supply users management, authentication, and authorization capabilities to your application. 
+
+== Overview
+
+A usual requirement for web applications is to allow control and administration of users within the system. By analyzing this requirement with more depth, two concepts arise: authentication and authorization.
+
+== Authentication
+
+This feature is composed up of a login mechanism that allows the user to authenticate to the system and user management that allows an administrator to create, update or delete the available users of the application.
+For the users to be able to authenticate they need to administrate their credentials in a secure way, and the application should be able to check that the credentials are valid to let them enter in the application. They also need to have a secure way for changing their credentials in case they forgot them or there is a need for a new one. These features are available through this component by using the mechanism of secure links for user registration and password changes.
+
+== Authorization
+
+After the user was able to authenticate into the application, this snaplet provides several features to control the access of the user to the resources offered by the application.
+The first level of control for accessing resources is provided by the usage of Roles (or Authorities). A given user can have assigned to itself a set of Roles. Then by code you can control the access of views or components by adding the @RolesAllowed annotation.
+When the application is containing a large amount of users and roles, sometimes an administrator can forget all the roles that should be added to a certain user so the idea of Groups can be useful. A group is an optional many to many relationship between users and roles. 
+You can decide on development time which roles are needed to access a given view with the @RolesAllowed annotation, but that can be also a burden to maintain (developers should remember to use always the same roles, they can suffer changes, etc.). User manager supplies also the ability to define this mapping between views and roles on runtime by the definition of rules.
+These rules allows and administrator to define what roles are needed to access different views, and by using wildcards this management can be simpler for applications containing a large amount of views. 
+
+section_outline::[]
+
+---

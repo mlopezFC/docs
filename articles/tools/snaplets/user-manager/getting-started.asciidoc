@@ -1,0 +1,289 @@
+---
+title: Getting Started
+description: Start using the snaplet right away
+order: 3
+---
+
+== Introduction
+
+This tutorial explains how to implement the user manager snaplet on an existing Vaadin application.
+
+== Prepare the Application
+
+For this guide use an application created on start.vaadin.com. You can download a new Vaadin project from https://start.vaadin.com/app?id=2b5d49c4-21ca-4aed-8ecd-31bc8e6d46fc&preview=[this link].
+
+Import the application in your IDE of choice and test it by executing the application main class.
+
+== Add the Dependencies
+
+Given that it is a monolithic application, the following dependencies representing the three layers of the snaplet must be added:
+
+[source,xml]
+----
+<dependency>
+    <groupId>com.vaadin.snaplets</groupId>
+    <artifactId>snaplet-user-manager-flow</artifactId>
+</dependency>
+<dependency>
+    <groupId>com.vaadin.snaplets</groupId>
+    <artifactId>snaplet-user-manager-data-impl</artifactId>
+</dependency>
+<dependency>
+    <groupId>com.vaadin.snaplets</groupId>
+    <artifactId>snaplet-user-manager-business-impl</artifactId>
+</dependency>
+----
+
+After adding them build the application to be sure that they are correctly used.
+
+== Modifying the Main Application Class
+
+The following annotations must be added to the main application class:
+
+[source,java]
+----
+@EnableVaadin({"com.vaadin.snaplets.usermanager.vaadin", "com.example.application"})
+@ComponentScan(basePackageClasses = {UserManagerAutoConfiguration.class, SnapletsAutoConfiguration.class, Application.class})
+----
+
+*@EnableVaadin*::
+This annotation is needed to load the views from the snaplets and also the existing views of the application.
+*@ComponentScan*::
+This one instructs Spring to load the needed beans from within the snaplet and also the ones provided by this application
+
+The `dataSourceScriptDatabaseInitializer` can be removed given that UserManager takes care of the database initialization.
+
+The following should be added to configure the layout that must be used by User Manager's views so they look the same as the rest of the views of the application:
+
+[source,java]
+----
+@Autowired
+RouteConfigurer routeConfigurer;
+
+@PostConstruct
+public void configure() {
+    routeConfigurer.setViewsRouterLayout(MainLayout.class);
+}
+----
+
+== Configure Spring Security
+
+To configure Spring Security we have to modify class `com.example.application.security.SecurityConfiguration`
+First of all you need to remove the PasswordEncoder bean, UserManager already provides one. Then you need to inject some services needed to configure persistent logins (also known as "Remember Me"). Another modification is adding support for displaying errors in the Login view.
+
+This is the modified version of the SecurityConfiguration class:
+
+[source,java]
+----
+@EnableWebSecurity
+@Configuration
+public class SecurityConfiguration extends VaadinWebSecurity {
+
+    @Value("${com.vaadin.snaplets.usernamager.encoding.secret.key:1234567890}")
+    private String secretKey;
+
+    @Autowired
+    private UserDetailsService userDetailsService;
+
+    @Autowired
+    private PersistentLoginService persistentLoginService;
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+
+        http.authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(new AntPathRequestMatcher("/images/*.png")).permitAll());
+
+        http.formLogin(formLogin -> formLogin.failureHandler(authenticationFailureHandler()));
+        http.rememberMe(rememberMe -> rememberMe.rememberMeServices(getRememberMeServices(userDetailsService, persistentLoginService)).tokenValiditySeconds(7200));
+
+        // Icons from the line-awesome addon
+        http.authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(new AntPathRequestMatcher("/line-awesome/**/*.svg")).permitAll());
+
+        super.configure(http);
+        setLoginView(http, LoginView.class);
+    }
+
+    public AuthenticationFailureHandler authenticationFailureHandler() {
+        Map<String, String> exceptionMappings = new HashMap<>();
+        exceptionMappings.put(UserDisabledException.class.getCanonicalName(),
+                "/login?error=disabled");
+        exceptionMappings.put(BadCredentialsException.class.getCanonicalName(),
+                "/login?error=badcredentials");
+
+        ExceptionMappingAuthenticationFailureHandler result =
+                new ExceptionMappingAuthenticationFailureHandler();
+        result.setExceptionMappings(exceptionMappings);
+        result.setDefaultFailureUrl("/login?error");
+
+        return result;
+    }
+
+    @Bean
+    public PersistentTokenBasedRememberMeServices getRememberMeServices(UserDetailsService userDetailsService, PersistentLoginService persistentLoginService) {
+        return new PersistentTokenBasedRememberMeServices(secretKey, userDetailsService,
+                persistentLoginService);
+    }
+
+}
+----
+
+== Use User Manager Services and Views
+
+User Manager provides repositories and services for handling users, so modify the following classes to use them instead of the ones provided by the application created on start.vaadin.com.
+
+The class AuthenticatedUser must be changed so it uses the provided UserService and UserDto:
+
+[source,java]
+----
+import java.util.Optional;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import com.vaadin.flow.spring.security.AuthenticationContext;
+import com.vaadin.snaplets.usermanager.model.UserDto;
+import com.vaadin.snaplets.usermanager.service.UserService;
+
+@Component
+public class AuthenticatedUser {
+
+    private final UserService userService;
+    private final AuthenticationContext authenticationContext;
+
+    public AuthenticatedUser(AuthenticationContext authenticationContext, UserService userService) {
+        this.userService = userService;
+        this.authenticationContext = authenticationContext;
+    }
+
+    @Transactional
+    public Optional<UserDto> get() {
+        return authenticationContext.getAuthenticatedUser(UserDetails.class)
+                .map(userDetails -> userService.findByUsername(userDetails.getUsername())).orElse(Optional.empty());
+    }
+
+    public void logout() {
+        authenticationContext.logout();
+    }
+
+}
+----
+
+The MainLayout should be changed because `authenticatedUser.get()` now returns a `UserDto`. Replace method `createFooter()` with the following implementation:
+
+[source,java]
+----
+  private Footer createFooter() {
+    Footer layout = new Footer();
+
+    Optional<UserDto> maybeUser = authenticatedUser.get();
+    if (maybeUser.isPresent()) {
+      UserDto user = maybeUser.get();
+
+      Avatar avatar = new Avatar(user.getUsername());
+      avatar.setThemeName("xsmall");
+      avatar.getElement().setAttribute("tabindex", "-1");
+
+      MenuBar userMenu = new MenuBar();
+      userMenu.setThemeName("tertiary-inline contrast");
+
+      MenuItem userName = userMenu.addItem("");
+      Div div = new Div();
+      div.add(avatar);
+      div.add(user.getUsername());
+      div.add(new Icon("lumo", "dropdown"));
+      div.getElement().getStyle().set("display", "flex");
+      div.getElement().getStyle().set("align-items", "center");
+      div.getElement().getStyle().set("gap", "var(--lumo-space-s)");
+      userName.add(div);
+      userName.getSubMenu().addItem("Sign out", e -> {
+        authenticatedUser.logout();
+      });
+
+      layout.add(userMenu);
+    } else {
+      Anchor loginLink = new Anchor("login", "Sign in");
+      layout.add(loginLink);
+    }
+
+    return layout;
+  }
+----
+
+Now add the views provided by User Manager to the left menu. Add the following snippet at the end of the method `createNavigation()` before returning "nav":
+
+[source,java]
+----
+    if (accessChecker.hasAccess(UsersListView.class)) {
+      SideNavItem navSec = new SideNavItem("Security");
+      navSec.setPrefixComponent(LineAwesomeIcon.SHIELD_ALT_SOLID.create());
+      if (accessChecker.hasAccess(UsersListView.class)) {
+        navSec.addItem(new SideNavItem("Users", UsersListView.class, LineAwesomeIcon.USER.create()));
+      }
+      if (accessChecker.hasAccess(AuthoritiesView.class)) {
+        navSec.addItem(new SideNavItem("Roles", AuthoritiesView.class, LineAwesomeIcon.THEATER_MASKS_SOLID.create()));
+      }
+      if (accessChecker.hasAccess(GroupsListView.class)) {
+        navSec.addItem(new SideNavItem("Groups", GroupsListView.class, LineAwesomeIcon.USERS_SOLID.create()));
+      }
+      if (accessChecker.hasAccess(RulesView.class)) {
+        navSec.addItem(new SideNavItem("Rules", RulesView.class, LineAwesomeIcon.BALANCE_SCALE_SOLID.create()));
+      }
+      if (accessChecker.hasAccess(ViewsView.class)) {
+        navSec.addItem(new SideNavItem("Views", ViewsView.class, LineAwesomeIcon.EYE_SOLID.create()));
+      }
+      if (accessChecker.hasAccess(ChangePasswordView.class)) {
+        navSec.addItem(new SideNavItem("Change Password", ChangePasswordView.class, LineAwesomeIcon.KEY_SOLID.create()));
+      }
+      nav.addItem(navSec);
+    }
+----
+
+Now the LoginView can be simplified so it extends the view provided by the snaplet. Change the LoginView so it extends UserManagerLoginView with the route "login":
+
+[source,java]
+----
+import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.auth.AnonymousAllowed;
+import com.vaadin.snaplets.usermanager.flow.view.UserManagerLoginView;
+
+@AnonymousAllowed
+@Route(value = "login")
+public class LoginView extends UserManagerLoginView { }
+----
+
+== Removing Unneeded Classes and Final Details
+
+The following classes can be removed because they are provided by the snaplet:
+
+- com.example.application.data.entity.User
+- com.example.application.security.UserDetailsServiceImpl
+- com.example.application.data.service.UserRepository
+- com.example.application.data.service.UserService
+- com.example.application.data.Role
+
+After removing those classes, remember to organize imports in the classes that were importing them to avoid compile errors.
+
+The application created on start.vaadin.com provides an initial SQL script that contains the initial data. User Manager handles the creation and population of tables so the file src/main/resources/data.sql can be removed.
+
+Automatic creation of tables has to be enabled by adding properties to file `application.properties`. Also you have to add package com.flowingcode to the list of whitelisted packages.
+
+You need to add the following two lines to application.properties:
+
+[source,properties]
+----
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.generate-ddl=true
+----
+
+And then replace add com.flowingcode at the end of the line that starts with `vaadin.whitelisted-packages`:
+
+[source,properties]
+----
+vaadin.whitelisted-packages = com.vaadin,org.vaadin,dev.hilla,com.example.application,com.flowingcode
+----
+
+== Testing the Application
+
+Start the application by running the `com.example.application.Application` spring boot application. The database is created and User Manager populates basic data so it can be used. After the application is started you can log in by using the user "admin" and password "admin".
+After logging in, the Security menu is available and inside it there are submenus for each of the views provided by this snaplet.

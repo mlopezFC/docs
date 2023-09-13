@@ -1,0 +1,53 @@
+---
+title: Application Snaplets
+description: Application Snaplets are a set of Enterprise Application building blocks designed to address common use cases, lowering the amount of code needed to be maintained and allowing to focus on the specific aspects of system's domain.
+section-nav: commercial
+---
+
+
+= Application Snaplets
+
+:commercial-feature: Application Snaplets
+:kit-trial: true
+include::{articles}/_commercial-banner.asciidoc[opts=optional]
+
+With Application Snaplets you can avoid implementing and maintaining by yourself common use cases like users management, lowering significantly the lines of code of your application and also the investment on analyzing, designing and testing these parts of your system.
+
+== Overview
+
+Applications Snaplets are full stack functional modules designed to simplify the application development, by targeting specific and common technical and functional features that are always implemented in a similar way.
+By using Snaplets, the code of the application can be simplified and the maintenance efforts can be focused on pure application related logic, instead of concepts that are not related to the business goals.
+
+Each Snaplet is a set of dependencies that can be added to an existing application, adding specific full stack features. Full stack means that they are divided in layers, so they can be used in different architectural styles in your application:
+
+*Data Access Layer*::
+It covers all the logic related to querying, retrieving and persisting information to external data repositories such as relational databases.
+*Business Logic Layer*::
+It contains the pure logic and validations that can be exposed as a services to other layers or business modules. It is pure in the sense that it doesn't use data access or presentation components, it represents how the main concepts or the module are validated, persisted and retrieved from the data access layer.
+*Presentation Layer*::
+It handles the user interface of the Snaplets. It includes all the views, components and abstractions needed to offer a UX of the functional features.
+
+image::images/architecture-diagram.png[Architecture diagram showing how a Snaplet integrates with existing applications.]
+
+For the layers to communicate with each other, another important part of the architecture is the usage of a common model. It allows all the layers invoke methods and get results based on a common language representing the main concepts of each Snaplet, in the same manner that the application does the same.
+
+== Features
+
+The following are common features that can be identified across all the Snaplets:
+
+*Pluggability*::
+One of the main goals when designing the idea, is that it should be easy to add them to existing applications. Of course applications can have different architectural styles and design principles, but in most of cases integrating them is adding the dependencies and some configurations.
+*Customization*::
+Each of the layers offer classes that can be extended to slightly modify the behavior so it can play well with the rest of the system. When persisting the data, the DAOs could trigger updates in other tables, more validations can be added to the Service layer, extra buttons can be added to the views, etc.
+*Independency*::
+Snaplets are independent of each other, you don't need to use all them at the same time on your application, only the ones that you need. It is even possible to use only a part of the provided functionalities.
+*Fine grained modularization*::
+To allow a clean architectural style and to be included in applications that have a strict layer isolation, separated contracts are provided so unwanted transitive dependencies are imposed to other layers. As an example, if you want to invoke a snaplet's service method, you can depend on the contracts (interfaces) modules that do not force you to compile against a transitive dependency to data access layer or presentation frameworks. The same applies to the rest of the layers.
+*Internationalization*::
+All Snaplets are built in such a way that can be translated to support other languages. They are built with Vaadin I18n support with a set of keys that can be translated by adding additional messages.properties files.
+
+== Snaplets
+
+section_outline::[]
+
+[discussion-id]`E6B09FCB-F17E-46EE-98E4-60EACE03A856`
